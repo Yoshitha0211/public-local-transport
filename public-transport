@@ -1,0 +1,103 @@
+"""
+=============================================================================
+SMART TRANSIT - Automated System & Routing Verification Script
+Team MIRACLES | Visakhapatnam Public Transit
+=============================================================================
+"""
+
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from app import create_app
+
+app = create_app()
+client = app.test_client()
+
+print("=" * 70)
+print("  SMART TRANSIT - AUTOMATED VERIFICATION SUITE")
+print("=" * 70)
+
+# 1. Health Check
+res = client.get("/api/health")
+assert res.status_code == 200, f"Expected 200, got {res.status_code}"
+health_data = res.json
+print(f"[PASS] /api/health: {health_data['status']} (Version {health_data['version']})")
+print(f"       Database contains {health_data['metrics']['total_stops']} stops, {health_data['metrics']['total_buses']} buses, {health_data['metrics']['total_routes']} routes.")
+
+# 2. Stops Listing & Filter
+res = client.get("/api/stops?q=Beach")
+assert res.status_code == 200
+stops = res.json["stops"]
+print(f"[PASS] /api/stops?q=Beach: Found {len(stops)} stops:")
+for s in stops:
+    print(f"       - {s['stop_name']} ({s['location']})")
+
+# 3. Direct Commute: Maddilapalem -> RTC Complex
+print("\n" + "-" * 70)
+print("TEST CASE 1: DIRECT COMMUTE (Maddilapalem -> RTC Complex)")
+print("-" * 70)
+res = client.get("/api/search?from=Maddilapalem&to=RTC+Complex")
+assert res.status_code == 200
+search_direct = res.json
+print(f"Total Routes Found: {search_direct['total_results']}")
+print(f"Direct Lines: {search_direct['direct_count']} | Connecting Options: {search_direct['connecting_count']}")
+assert search_direct['direct_count'] > 0, "Direct routes should be found"
+
+for idx, r in enumerate(search_direct['routes'][:4], start=1):
+    flags = []
+    if r['is_recommended']: flags.append("⭐ RECOMMENDED")
+    if r['is_cheapest']: flags.append("💰 CHEAPEST")
+    if r['is_fastest']: flags.append("⚡ FASTEST")
+    flag_str = f" [{', '.join(flags)}]" if flags else ""
+    print(f"  Option {idx}: Bus {r['bus_number']} ({r['bus_type']})")
+    print(f"            Dep: {r['origin']['departure_time']} ➔ Arr: {r['destination']['arrival_time']}")
+    print(f"            Fare: Rs. {r['total_fare']} | Duration: {r['total_duration']} mins | Halts: {r['total_stops']}{flag_str}")
+
+# 4. Connecting Commute: Bheemili Beach -> Gajuwaka
+print("\n" + "-" * 70)
+print("TEST CASE 2: CONNECTING COMMUTE (Bheemili Beach -> Gajuwaka)")
+print("-" * 70)
+res = client.get("/api/search?from=Bheemili+Beach&to=Gajuwaka")
+assert res.status_code == 200
+search_conn = res.json
+print(f"Total Routes Found: {search_conn['total_results']}")
+print(f"Direct Lines: {search_conn['direct_count']} | Connecting Options: {search_conn['connecting_count']}")
+assert search_conn['connecting_count'] > 0, "Connecting routes should be found when no direct bus exists"
+
+for idx, r in enumerate(search_conn['routes'][:3], start=1):
+    trans = r['transfer_stop']
+    print(f"  Option {idx}: {r['bus_number']} (Route ID: {r['route_id']})")
+    print(f"            Transfer At: '{trans['stop_name']}' (~{trans['buffer_minutes']} min platform buffer)")
+    print(f"            Leg 1: Bus {r['legs'][0]['bus_number']} from {r['legs'][0]['from_stop']} to {r['legs'][0]['to_stop']} (Rs.{r['legs'][0]['fare']}, {r['legs'][0]['duration']} mins)")
+    print(f"            Leg 2: Bus {r['legs'][1]['bus_number']} from {r['legs'][1]['from_stop']} to {r['legs'][1]['to_stop']} (Rs.{r['legs'][1]['fare']}, {r['legs'][1]['duration']} mins)")
+    print(f"            Total Fare: Rs. {r['total_fare']} | Total Duration: {r['total_duration']} mins | Total Halts: {r['total_stops']}")
+
+# 5. Stop Details with Passing Buses
+print("\n" + "-" * 70)
+print("TEST CASE 3: STOP DETAILS (/api/stops/1 - RTC Complex)")
+print("-" * 70)
+res = client.get("/api/stops/1")
+assert res.status_code == 200
+stop_info = res.json
+print(f"Stop: {stop_info['stop']['stop_name']} ({stop_info['stop']['location']})")
+print(f"Total Passing Buses: {stop_info['total_passing_buses']}")
+for b in stop_info['passing_buses'][:3]:
+    print(f"  - Bus {b['bus_number']} ({b['bus_type']}): {b['source']} ➔ {b['destination']} at {b['arrival_time']}")
+
+# 6. System Stats
+print("\n" + "-" * 70)
+print("TEST CASE 4: SYSTEM STATS (/api/stats)")
+print("-" * 70)
+res = client.get("/api/stats")
+assert res.status_code == 200
+stats = res.json
+print(f"Daily Commuters: {stats['metrics']['daily_commuters']}")
+print(f"Schedule Reliability: {stats['metrics']['on_time_performance']}")
+print(f"Popular Destinations in Vizag: {[d['name'] for d in stats['popular_destinations']]}")
+print(f"Transit Corridors: {len(stats['transit_corridors'])} active corridors")
+
+print("\n" + "=" * 70)
+print("  ALL VERIFICATION TESTS COMPLETED WITH 100% SUCCESS!")
+print("=" * 70)
+
