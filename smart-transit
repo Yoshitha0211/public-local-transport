@@ -1,0 +1,34 @@
+smart-transit/
+├── backend/
+│   ├── app.py            # Flask app factory, CORS configuration & blueprint registration
+│   ├── database.py       # SQLite connection, foreign keys & 25-stop Vizag seed data
+│   ├── models.py         # Data models and dictionary serialisers
+│   ├── routes.py         # Graph-based direct & 1-stop connecting search algorithms
+│   ├── test_system.py    # Automated test verification suite
+│   ├── requirements.txt  # Flask & Flask-CORS dependencies
+│   └── transit.db        # SQLite3 relational database
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Navbar.jsx           # Header with real-time API health status badge
+│   │   │   ├── Footer.jsx           # Vizag transit helplines & Team MIRACLES attribution
+│   │   │   ├── RouteCard.jsx        # Individual route result with schedule & expandable stops
+│   │   │   ├── ComparisonModal.jsx  # Side-by-side comparison modal (Fare, Duration, Halts)
+│   │   │   └── LeafletMap.jsx       # Interactive OpenStreetMap with numbered pins & polyline
+│   │   ├── pages/
+│   │   │   ├── Home.jsx             # Hero banner, quick search widget & popular Vizag spots
+│   │   │   ├── BusSearch.jsx        # Route search, filters (All/Direct/Conn) & sort toggles
+│   │   │   ├── BusStops.jsx         # 25-stop directory with schedule popups & directions
+│   │   │   ├── JourneyDetails.jsx   # Turn-by-turn itinerary, map waypoints & fare breakdown
+│   │   │   └── AboutUs.jsx          # Mission statement, problem breakdown & CS tech stack
+│   │   ├── App.jsx                  # Main state coordinator & view navigation
+│   │   ├── index.css                # Tailwind directives & custom map styles
+│   │   └── main.jsx                 # React root renderer
+│   ├── index.html                   # Inter font typography & Leaflet CSS
+│   ├── vite.config.js               # Proxy configuration to Flask backend (:5000)
+│   ├── package.json                 # React, Tailwind, Lucide, Leaflet dependencies
+│   └── tailwind.config.js           # Modern Navy, Sky, Slate color palette
+├── run_backend.bat                  # Starts Flask backend server
+├── run_frontend.bat                 # Starts React Vite dev server
+├── start_all.bat                    # One-click launcher for both servers & browser
+└── README.md                        # Documentation & evaluation manual
