@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Yatra | Travel Planner</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f3f6fb;
+  color: #18243a;
+}
+
+header {
+  background: #102b50;
+  color: white;
+  padding: 22px 8%;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+header p {
+  margin-bottom: 0;
+  color: #d8e6fa;
+}
+
+main {
+  max-width: 850px;
+  margin: 35px auto;
+  padding: 0 18px;
+}
+
+.panel {
+  background: white;
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 5px 22px #18243a12;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+label {
+  display: block;
+  margin: 16px 0 7px;
+  font-weight: bold;
+}
+
+select {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #ccd5e2;
+  border-radius: 8px;
+  font-size: 16px;
+  background: white;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 22px;
+  border: none;
+  border-radius: 8px;
+  background: #1765ce;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #104eaa;
+}
+
+#result {
+  display: none;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 15px 0;
+}
+
+.stat {
+  background: #edf4ff;
+  padding: 14px;
+  border-radius: 10px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.stat strong {
+  display: block;
+  font-size: 20px;
+  color: #1459b0;
+  margin-top: 6px;
+}
+
+.bus-card {
+  border: 1px solid #dce5ef;
+  padding: 16px;
+  border-radius: 10px;
+  margin-top: 12px;
+}
+
+.bus-card h3 {
+  margin-top: 0;
+  color: #1459b0;
+}
+
+.stop {
+  padding: 9px 0;
+  border-left: 3px solid #1765ce;
+  padding-left: 14px;
+  margin-left: 5px;
+}
+
+.note {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 20px;
+}
+
+footer {
+  text-align: center;
+  color: #64748b;
+  padding: 25px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🚌 Smart Yatra</h1>
+  <p>Your simple local public transportation guide</p>
+</header>
+
+<main>
+
+<section class="panel">
+  <h2>Plan Your Journey</h2>
+  <p>Choose your starting point and destination.</p>
+
+  <label for="source">Starting Location</label>
+  <select id="source"></select>
+
+  <label for="destination">Destination</label>
+  <select id="destination"></select>
+
+  <button onclick="findRoute()">Find My Route</button>
+</section>
+
+<section class="panel" id="result">
+  <h2>Journey Details</h2>
+  <div id="details"></div>
+</section>
+
+<footer>
+  Smart Yatra | Hackathon Prototype
+</footer>
+
+</main>
+
+<script>
+
+// DEMONSTRATION TRANSPORT DATA
+// These are fictional sample routes and fares.
+// Replace them with verified local transport data.
+
+const stops = [
+  "Central Station",
+  "Railway Station",
+  "Market",
+  "College",
+  "Hospital",
+  "Tech Park"
+];
+
+const routes = [
+  {from:"Central Station",to:"Railway Station",bus:"10A",minutes:8,fare:10},
+  {from:"Railway Station",to:"Market",bus:"10A",minutes:7,fare:8},
+  {from:"Market",to:"College",bus:"10A",minutes:12,fare:10},
+
+  {from:"Central Station",to:"Hospital",bus:"25B",minutes:10,fare:12},
+  {from:"Hospital",to:"Market",bus:"25B",minutes:9,fare:10},
+  {from:"Market",to:"Tech Park",bus:"25B",minutes:14,fare:15},
+
+  {from:"Railway Station",to:"Tech Park",bus:"40C",minutes:20,fare:20},
+  {from:"College",to:"Tech Park",bus:"40C",minutes:15,fare:15}
+];
+
+// Create the location dropdowns.
+
+const sourceSelect = document.getElementById("source");
+const destinationSelect = document.getElementById("destination");
+
+stops.forEach(stop => {
+  sourceSelect.add(new Option(stop, stop));
+  destinationSelect.add(new Option(stop, stop));
+});
+
+sourceSelect.value = "Central Station";
+destinationSelect.value = "College";
+
+// Find the fastest route using Dijkstra's algorithm.
+
+function calculateRoute(start, end) {
+
+  if (start === end) {
+    return {path: [], minutes: 0, fare: 0};
+  }
+
+  const buses = [...new Set(routes.map(r => r.bus))];
+  const allStates = [];
+
+  stops.forEach(stop => {
+    allStates.push(stop + "|");
+    buses.forEach(bus => {
+      allStates.push(stop + "|" + bus);
+    });
+  });
+
+  const distance = {};
+  const fareTotal = {};
+  const previous = {};
+  const visited = new Set();
+
+  allStates.forEach(state => {
+    distance[state] = Infinity;
+    fareTotal[state] = 0;
+  });
+
+  const initial = start + "|";
+  distance[initial] = 0;
+
+  while (visited.size < allStates.length) {
+
+    let current = null;
+    let best = Infinity;
+
+    allStates.forEach(state => {
+      if (!visited.has(state) && distance[state] < best) {
+        best = distance[state];
+        current = state;
+      }
+    });
+
+    if (current === null) break;
+
+    visited.add(current);
+
+    const parts = current.split("|");
+    const currentStop = parts[0];
+    const currentBus = parts[1];
+
+    if (currentStop === end) break;
+
+    routes.forEach(edge => {
+
+      let nextStop = null;
+
+      if (edge.from === currentStop) {
+        nextStop = edge.to;
+      } else if (edge.to === currentStop) {
+        nextStop = edge.from;
+      }
+
+      if (nextStop === null) return;
+
+      const nextState = nextStop + "|" + edge.bus;
+
+      if (visited.has(nextState)) return;
+
+      // Add a 5-minute penalty when changing buses.
+      const transfer = currentBus && currentBus !== edge.bus ? 5 : 0;
+
+      const newTime = best + edge.minutes + transfer;
+
+      if (newTime < distance[nextState]) {
+        distance[nextState] = newTime;
+        fareTotal[nextState] = fareTotal[current] + edge.fare;
+
+        previous[nextState] = {
+          state: current,
+          edge: edge
+        };
+      }
+
+    });
+  }
+
+  // Select the fastest destination state.
+
+  let finalState = null;
+  let fastest = Infinity;
+
+  allStates.forEach(state => {
+    if (state.startsWith(end + "|") && distance[state] < fastest) {
+      fastest = distance[state];
+      finalState = state;
+    }
+  });
+
+  if (finalState === null || !Number.isFinite(fastest)) {
+    return null;
+  }
+
+  // Reconstruct the journey.
+
+  const path = [];
+  let current = finalState;
+
+  while (current !== initial) {
+    const step = previous[current];
+
+    if (!step) return null;
+
+    path.unshift(step.edge);
+    current = step.state;
+  }
+
+  return {
+    path: path,
+    minutes: fastest,
+    fare: fareTotal[finalState]
+  };
+}
+
+// Display the journey to the user.
+
+function findRoute() {
+
+  const start = sourceSelect.value;
+  const end = destinationSelect.value;
+
+  const resultBox = document.getElementById("result");
+  const details = document.getElementById("details");
+
+  resultBox.style.display = "block";
+
+  if (start === end) {
+    details.innerHTML = "<p>Please select two different locations.</p>";
+    return;
+  }
+
+  const journey = calculateRoute(start, end);
+
+  if (!journey) {
+    details.innerHTML = "<p>No route found in our sample dataset.</p>";
+    return;
+  }
+
+  let html = `
+    <div class="summary">
+      <div class="stat">
+        Estimated time
+        <strong>${journey.minutes} min</strong>
+      </div>
+      <div class="stat">
+        Estimated fare
+        <strong>₹${journey.fare}</strong>
+      </div>
+      <div class="stat">
+        Bus changes
+        <strong>${Math.max(0, new Set(journey.path.map(x => x.bus)).size - 1)}</strong>
+      </div>
+    </div>
+
+    <h3>Suggested Journey</h3>
+    <p><b>From:</b> ${start}</p>
+    <p><b>To:</b> ${end}</p>
+  `;
+
+  // Group consecutive edges using the same bus.
+
+  const segments = [];
+
+  journey.path.forEach(edge => {
+    const last = segments[segments.length - 1];
+
+    if (last && last.bus === edge.bus) {
+      last.to = edge.to;
+      last.minutes += edge.minutes;
+      last.fare += edge.fare;
+    } else {
+      segments.push({
+        bus: edge.bus,
+        from: edge.from,
+        to: edge.to,
+        minutes: edge.minutes,
+        fare: edge.fare
+      });
+    }
+  });
+
+  segments.forEach((segment, index) => {
+
+    html += `
+      <div class="bus-card">
+        <h3>🚌 Bus ${segment.bus}</h3>
+        <p><b>Board:</b> ${segment.from}</p>
+        <p><b>Get down:</b> ${segment.to}</p>
+        <p>Estimated travel: ${segment.minutes} minutes</p>
+        <p>Illustrative fare: ₹${segment.fare}</p>
+      </div>
+    `;
+
+    if (index < segments.length - 1) {
+      html += "<p>🔄 Change bus at " + segment.to + "</p>";
+    }
+  });
+
+  const stopSequence = [start];
+
+  journey.path.forEach(edge => {
+    const next = edge.from === stopSequence[stopSequence.length - 1]
+      ? edge.to
+      : edge.from;
+
+    stopSequence.push(next);
+  });
+
+  html += "<h3>Stops Along Your Journey</h3>";
+
+  stopSequence.forEach(stop => {
+    html += `<div class="stop">📍 ${stop}</div>`;
+  });
+
+  html += `
+    <p class="note">
+      Demonstration results based on fictional sample data.
+      Travel times and fares are estimates, not live transport information.
+    </p>
+  `;
+
+  details.innerHTML = html;
+}
+
+</script>
+
+</body>
+</html>
